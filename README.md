@@ -94,5 +94,78 @@ export class SSHManager extends EventEmitter {
     return sshKeyRegex.test(key.trim());
   }
 }
+import { SSHManager } from './ssh-manager';
+import { NodeSSH } from 'node-ssh';
+import { jest } from '@jest/globals';
+
+jest.mock('node-ssh');
+
+describe('SSHManager', () => {
+  const mockConfig = {
+    host: '147.93.42.68',
+    port: 65002,
+    username: 'u819962648',
+    password: 'test-password'
+  };
+
+  let sshManager: SSHManager;
+
+  beforeEach(() => {
+    sshManager = new SSHManager(mockConfig);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  describe('connect', () => {
+    it('should successfully connect to SSH server', async () => {
+      const connectSpy = jest.spyOn(NodeSSH.prototype, 'connect')
+        .mockResolvedValue(undefined);
+
+      await sshManager.connect();
+      
+      expect(connectSpy).toHaveBeenCalledWith({
+        ...mockConfig,
+        timeout: 10000
+      });
+    });
+
+    it('should throw SSHConnectionError on connection failure', async () => {
+      jest.spyOn(NodeSSH.prototype, 'connect')
+        .mockRejectedValue(new Error('Connection refused'));
+
+      await expect(sshManager.connect())
+        .rejects
+        .toThrow('Failed to connect: Connection refused');
+    });
+  });
+
+  describe('executeCommand', () => {
+    it('should execute command successfully', async () => {
+      const mockResult = { stdout: 'command output', stderr: '' };
+      jest.spyOn(NodeSSH.prototype, 'execCommand')
+        .mockResolvedValue(mockResult);
+
+      await sshManager.connect();
+      const result = await sshManager.executeCommand('ls -la');
+      
+      expect(result).toBe('command output');
+    });
+  });
+
+  describe('validateSSHKey', () => {
+    it('should validate correct SSH RSA key', () => {
+      const validKey = 'ssh-rsa AAAAB3NzaC1yc2E... user@host';
+      expect(SSHManager.validateSSHKey(validKey)).toBeTruthy();
+    });
+
+    it('should reject invalid SSH key', () => {
+      const invalidKey = 'invalid-key';
+      expect(SSHManager.validateSSHKey(invalidKey)).toBeFalsy();
+    });
+  });
+});
+****
 # myconstantstore
 members area page
